@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+    environment {
+        BITBUCKET_WORKSPACE = 'vasusidgs'
+    }
+    stages {
+        stage('clean_ws') {
+            steps {
+
+                script {
+                    deleteDir()
+                }
+            }
+            }
+            stage('clone_arctype_repo') {
+            steps {
+                script {
+                    // Curl command to create the Bitbucket repository
+                    withCredentials([usernamePassword(credentialsId: 'Sidgs-Bitbucket-Cred', passwordVariable: 'BITBUCKET_APP_PASSWORD', usernameVariable: 'BITBUCKET_USERNAME')]) {
+                    sh """
+                        git clone https://${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD}@bitbucket.org/vasusidgs/sample-helloworld.git
+                    """
+                }
+                }
+            }
+        }
+        stage('Create Bitbucket Repo') {
+            steps {
+                script {
+                    def bitbucketApiUrl = "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_WORKSPACE}/${REPO_NAME}"
+                    // Create JSON payload for repository creation
+                    def createRepoJson = """
+                        {
+                            "scm": "git",
+                            "is_private": true,
+                            "fork_policy": "no_public_forks"
+                        }
+                    """
+                    // Curl command to create the Bitbucket repository
+                    withCredentials([usernamePassword(credentialsId: 'Sidgs-Bitbucket-Cred', passwordVariable: 'BITBUCKET_APP_PASSWORD', usernameVariable: 'BITBUCKET_USERNAME')]) {
+                    sh """
+                        curl -X POST -u ${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD} -H "Content-Type: application/json" \
+                        -d '${createRepoJson}' ${bitbucketApiUrl}
+                    """
+                }
+                }
+            }
+        }
+        stage('clone-push') {
+            steps {
+
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'Sidgs-Bitbucket-Cred', passwordVariable: 'BITBUCKET_APP_PASSWORD', usernameVariable: 'BITBUCKET_USERNAME')]) {
+                    sh """
+
+ 
+                    ls -latr
+                        git clone https://${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD}@bitbucket.org/vasusidgs/${REPO_NAME}.git
+                       ls -latr
+                       cp -r sample-helloworld/* ${REPO_NAME}/
+                       cd ${REPO_NAME}
+                       ls -latr
+                       git add .
+                       git config --global user.email  vasua@sidgs.com
+                       git config --global user.name Vasuvardhana
+                       git commit -m "New changes"
+                       git push https://${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD}@bitbucket.org/vasusidgs/${REPO_NAME}.git master
+                       git checkout -b develop
+                       git push https://${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD}@bitbucket.org/vasusidgs/${REPO_NAME}.git develop
+
+                    """
+                }
+            }
+            }
+        }
+    }
+}
